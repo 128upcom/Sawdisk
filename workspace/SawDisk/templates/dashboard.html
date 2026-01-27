@@ -1,0 +1,669 @@
+{% extends "base.html" %}
+
+{% block title %}SawDisk Dashboard{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="h2 mb-4">
+            <i class="fas fa-tachometer-alt text-primary"></i> 
+            SawDisk Dashboard
+        </h1>
+    </div>
+</div>
+
+<!-- System Status Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">SCAN STATUS</h6>
+                        <h4 id="scan-status" class="mb-0">Ready</h4>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-search fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">ITEMS FOUND</h6>
+                        <h4 id="items-found" class="mb-0">0</h4>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-database fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">AVAILABLE DRIVES</h6>
+                        <h4 id="drive-count" class="mb-0">Loading...</h4>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-hdd fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+        <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">CURRENT STATUS</h6>
+                        <h6 id="current-status" class="mb-0">Ready</h6>
+                        <small id="scan-id" style="display: none;"></small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-clock fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Real-time Status -->
+<div class="row mb-4" id="realtime-status">
+    <div class="col-md-12">
+        <div class="card border-info">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-rocket text-info"></i> 
+                    <span id="scan-status-text">Scan Status</span>
+                </h5>
+                <button class="btn btn-danger btn-sm" onclick="stopScan()" id="stop-scan-btn" style="display: none;">
+                    <i class="fas fa-stop"></i> Stop Scan
+                </button>
+            </div>
+            <div class="card-body">
+                <!-- Active scan content -->
+                <div id="scan-active-content" style="display: none;">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="mb-2">
+                                <strong>Scan ID:</strong> <span id="scan-id-display"></span>
+                            </div>
+                            <div class="mb-2">
+                                <strong>Drive:</strong> <span id="scan-drive"></span>
+                            </div>
+                            <div class="mb-2">
+                                <strong>Current:</strong> <span id="scan-current-file"></span>
+                            </div>
+                            <div class="progress mb-2">
+                                <div class="progress-bar bg-info" id="scan-progress-bar" 
+                                     role="progressbar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="row text-center">
+                                <div class="col-4">
+                                    <div class="card bg-light">
+                                        <div class="card-body p-2">
+                                            <h6 class="mb-0" id="files-scanned">0</h6>
+                                            <small>Scanned</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="card bg-light">
+                                        <div class="card-body p-2">
+                                            <h6 class="mb-0" id="files-found">0</h6>
+                                            <small>Found</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="card bg-light">
+                                        <div class="card-body p-2">
+                                            <h6 class="mb-0" id="files-per-second">0</h6>
+                                            <small>/sec</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Idle state content -->
+                <div id="scan-idle-content">
+                    <div class="text-center text-muted">
+                        <i class="fas fa-stop-circle fa-3x mb-3"></i>
+                        <p class="mb-0">No scan in progress</p>
+                        <small>Start a scan from the Quick Actions section or the Scan page</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-bolt text-warning"></i> Quick Actions
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <button class="btn btn-primary btn-lg w-100" onclick="startQuickScan()">
+                            <i class="fas fa-play"></i><br>
+                            Start Quick Scan
+                        </button>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-info btn-lg w-100" onclick="window.location.href='/scan'">
+                            <i class="fas fa-cog"></i><br>
+                            Configure Scan
+                        </button>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-success btn-lg w-100" onclick="viewReports()">
+                            <i class="fas fa-file-alt"></i><br>
+                            View Reports
+                        </button>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-warning btn-lg w-100" onclick="refreshStatus()">
+                            <i class="fas fa-sync"></i><br>
+                            Refresh Status
+                        </button>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-info btn-lg w-100" onclick="window.location.href='/summary'">
+                            <i class="fas fa-chart-bar"></i><br>
+                            Scan Summary
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Available Drives -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-hdd text-info"></i> Available Drives
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="drives-list">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Loading drive information...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Scan Progress -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-line text-success"></i> Scan Progress
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="scan-progress-container">
+                    <div class="text-center">
+                        <i class="fas fa-stop-circle fa-3x text-muted"></i>
+                        <p class="mt-2 text-muted">No scan in progress</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scan History -->
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-history text-secondary"></i> Scan History
+                </h5>
+                <button class="btn btn-sm btn-outline-primary" onclick="refreshScanHistory()">
+                    <i class="fas fa-sync"></i> Refresh
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="scan-history-list">
+                    <div class="text-center">
+                        <i class="fas fa-inbox fa-2x text-muted"></i>
+                        <p class="mt-2 text-muted">Loading scan history...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Dashboard specific JavaScript
+function startQuickScan() {
+    fetch('/api/scan/start', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            scan_path: '/mnt/volumes',
+            verbose: true
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            showNotification('Error: ' + data.error, 'error');
+        } else {
+            showNotification('Scan started successfully!', 'success');
+            refreshStatus();
+        }
+    });
+}
+
+function viewReports() {
+    fetch('/api/results')
+    .then(response => response.json())
+    .then(data => {
+        if (data.report_path) {
+            window.open('/reports/' + data.report_path.split('/').pop(), '_blank');
+        } else {
+            showNotification('No reports available', 'warning');
+        }
+    });
+}
+
+function refreshScanHistory() {
+    fetch('/api/scan/history')
+    .then(response => response.json())
+    .then(data => {
+        updateScanHistoryList(data.scans || []);
+    })
+    .catch(error => {
+        console.error('Error loading scan history:', error);
+        document.getElementById('scan-history-list').innerHTML = 
+            '<p class="text-muted">Error loading scan history</p>';
+    });
+}
+
+function updateScanHistoryList(scans) {
+    const container = document.getElementById('scan-history-list');
+    
+    if (scans.length === 0) {
+        container.innerHTML = `
+            <div class="text-center">
+                <i class="fas fa-inbox fa-2x text-muted"></i>
+                <p class="mt-2 text-muted">No scans performed yet</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    scans.slice(0, 5).forEach(scan => { // Show only 5 most recent
+        const timestamp = new Date(scan.timestamp).toLocaleString();
+        const duration = scan.scan_duration ? `${scan.scan_duration}s` : 'N/A';
+        const statusClass = scan.status === 'completed' ? 'success' : 
+                           scan.status === 'running' ? 'warning' : 'danger';
+        
+        html += `
+            <div class="card mb-3">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <div class="d-flex align-items-center">
+                                <div>
+                                    <h6 class="mb-1">${scan.drive_name}</h6>
+                                    <small class="text-muted">${scan.scan_path}</small>
+                                    <br>
+                                    <small class="text-muted">
+                                        ${timestamp} • ${duration} • ${scan.files_found} items found
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <span class="badge bg-${statusClass}">${scan.status}</span>
+                            <button class="btn btn-sm btn-outline-primary ms-2" 
+                                    onclick="viewScanReport('${scan.scan_id}')">
+                                <i class="fas fa-eye"></i> View Report
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    if (scans.length > 5) {
+        html += `<p class="text-muted text-center mt-2">Showing 5 of ${scans.length} scans</p>`;
+    }
+    
+    container.innerHTML = html;
+}
+
+function viewScanReport(scanId) {
+    fetch(`/api/scan/${scanId}`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            showNotification('Error: ' + data.error, 'error');
+        } else {
+            // For now, show scan details in console or alert
+            // Later we can create a proper report viewer modal
+            alert(`Scan Report: ${data.drive_name}\n` +
+                  `Files Found: ${data.files_found}\n` +
+                  `Total Scanned: ${data.total_files_scanned}\n` +
+                  `Duration: ${data.scan_duration}s\n` +
+                  `Drive Size: ${data.drive_size}`);
+        }
+    })
+    .catch(error => {
+        console.error('Error loading scan report:', error);
+        showNotification('Failed to load scan report', 'error');
+    });
+}
+
+// Real-time status updates (now handled by updateRealtimeStatusSafe)
+function updateRealtimeStatus() {
+    updateRealtimeStatusSafe();
+}
+
+function updateStatusDisplay(data) {
+    const activeContent = document.getElementById('scan-active-content');
+    const idleContent = document.getElementById('scan-idle-content');
+    const stopBtn = document.getElementById('stop-scan-btn');
+    
+    if (data.is_running) {
+        // Show active scan content
+        if (activeContent) activeContent.style.display = 'block';
+        if (idleContent) idleContent.style.display = 'none';
+        if (stopBtn) stopBtn.style.display = 'block';
+        
+        // Update scan info
+        const statusText = document.getElementById('scan-status-text');
+        if (statusText) {
+            statusText.textContent = data.status ? data.status.charAt(0).toUpperCase() + data.status.slice(1) : 'Scanning...';
+        }
+        
+        const scanIdDisplay = document.getElementById('scan-id-display');
+        if (scanIdDisplay) scanIdDisplay.textContent = data.scan_id || 'N/A';
+        
+        const scanDrive = document.getElementById('scan-drive');
+        if (scanDrive) scanDrive.textContent = data.drive || 'Unknown';
+        
+        const scanCurrentFile = document.getElementById('scan-current-file');
+        if (scanCurrentFile) {
+            scanCurrentFile.textContent = data.current_file ? 
+                data.current_file.split('/').pop() : 'Preparing...';
+        }
+        
+        // Update progress
+        const progressBar = document.getElementById('scan-progress-bar');
+        if (progressBar) {
+            const progress = data.progress || 0;
+            progressBar.style.width = progress + '%';
+            progressBar.textContent = `${Math.round(progress)}%`;
+        }
+        
+        // Update counts
+        const filesScanned = document.getElementById('files-scanned');
+        if (filesScanned) filesScanned.textContent = data.files_scanned || 0;
+        
+        const filesFound = document.getElementById('files-found');
+        if (filesFound) filesFound.textContent = data.files_found || 0;
+        
+        const filesPerSecond = document.getElementById('files-per-second');
+        if (filesPerSecond) filesPerSecond.textContent = Math.round(data.files_per_second || 0);
+        
+        // Handle scan stopping
+        if (data.stop_requested || data.status === 'stopping') {
+            if (statusText) statusText.textContent = 'Stopping...';
+            if (stopBtn) stopBtn.disabled = true;
+        } else {
+            if (stopBtn) stopBtn.disabled = false;
+        }
+    } else {
+        // Show idle state
+        if (activeContent) activeContent.style.display = 'none';
+        if (idleContent) idleContent.style.display = 'block';
+        if (stopBtn) stopBtn.style.display = 'none';
+        
+        const statusText = document.getElementById('scan-status-text');
+        if (statusText) statusText.textContent = 'Scan Status';
+    }
+}
+
+function updateCurrentStatusCard(data) {
+    const statusEl = document.getElementById('current-status');
+    const scanIdEl = document.getElementById('scan-id');
+    
+    if (data.is_running) {
+        statusEl.textContent = `${data.status.charAt(0).toUpperCase() + data.status.slice(1)}`;
+        scanIdEl.textContent = data.scan_id;
+        scanIdEl.style.display = 'block';
+    } else {
+        statusEl.textContent = 'Ready';
+        scanIdEl.style.display = 'none';
+    }
+}
+
+function stopScan() {
+    if (confirm('Are you sure you want to stop the current scan?')) {
+        fetch('/api/scan/stop', { method: 'POST' })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification('Scan stop requested', 'warning');
+            } else {
+                showNotification('Error: ' + data.error, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error stopping scan:', error);
+            showNotification('Failed to stop scan', 'error');
+        });
+    }
+}
+
+// Dashboard initialization
+let statusUpdateInterval = null;
+let isUpdatingStatus = false;
+
+function updateRealtimeStatusSafe() {
+    if (isUpdatingStatus) return;
+    
+    isUpdatingStatus = true;
+    fetch('/api/scan/status')
+        .then(response => response.json())
+        .then(data => {
+            updateStatusDisplay(data);
+            updateCurrentStatusCard(data);
+        })
+        .catch(error => {
+            console.error('Error updating real-time status:', error);
+        })
+        .finally(() => {
+            isUpdatingStatus = false;
+        });
+}
+
+function refreshScanHistorySafe() {
+    fetch('/api/scan/history')
+        .then(response => response.json())
+        .then(data => {
+            updateScanHistoryList(data.scans || []);
+        })
+        .catch(error => {
+            console.error('Error loading scan history:', error);
+            const container = document.getElementById('scan-history-list');
+            if (container) {
+                container.innerHTML = '<p class="text-muted">Error loading scan history</p>';
+            }
+        });
+}
+
+// Direct function to load drives - call immediately
+function loadDrivesDirectly() {
+    console.log('Loading drives directly...');
+    const drivesListElement = document.getElementById('drives-list');
+    if (!drivesListElement) {
+        console.error('drives-list element not found');
+        return;
+    }
+    
+    fetch('/api/system-info')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('System info received:', data);
+            const mounts = data.mounts || [];
+            
+            // Update drive count
+            const driveCountElement = document.getElementById('drive-count');
+            if (driveCountElement) {
+                driveCountElement.textContent = mounts.length;
+            }
+            
+            // Update drives list
+            if (mounts.length === 0) {
+                drivesListElement.innerHTML = `
+                    <div class="text-center text-muted">
+                        <i class="fas fa-exclamation-triangle fa-2x"></i>
+                        <p class="mt-2">No accessible drives found</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            mounts.forEach(mount => {
+                const statusClass = mount.percent > 90 ? 'danger' : 
+                                   mount.percent > 75 ? 'warning' : 'success';
+                const device = (mount.device || 'Unknown').replace(/"/g, '&quot;');
+                const mountpoint = (mount.mountpoint || '').replace(/"/g, '&quot;');
+                const free = mount.free || '0';
+                const total = mount.total || '0';
+                const percent = parseFloat(mount.percent || 0).toFixed(1);
+                
+                html += '<div class="mb-2 p-2 border rounded">';
+                html += '<div class="d-flex justify-content-between align-items-center">';
+                html += '<div><strong>' + device + '</strong><br>';
+                html += '<small class="text-muted">' + mountpoint + '</small></div>';
+                html += '<div class="text-end">';
+                html += '<div class="progress" style="width: 100px; height: 20px;">';
+                html += '<div class="progress-bar bg-' + statusClass + '" style="width: ' + percent + '%"></div>';
+                html += '</div><small>' + percent + '%</small></div></div>';
+                html += '<div class="small text-muted mt-1">' + free + ' free of ' + total + '</div>';
+                html += '<div class="mt-2">';
+                html += '<button class="btn btn-sm btn-primary" onclick="startQuickDriveScan(\'' + mountpoint + '\', \'' + device + '\')">';
+                html += '<i class="fas fa-search"></i> Quick Scan</button> ';
+                html += '<button class="btn btn-sm btn-outline-secondary" onclick="window.location.href=\'/scan?drive=' + encodeURIComponent(mountpoint) + '\'">';
+                html += '<i class="fas fa-cog"></i> Configure</button>';
+                html += '</div></div>';
+            });
+            
+            drivesListElement.innerHTML = html;
+            console.log('Drives list updated with', mounts.length, 'drives');
+        })
+        .catch(error => {
+            console.error('Error loading drives:', error);
+            drivesListElement.innerHTML = `
+                <div class="text-center text-danger">
+                    <i class="fas fa-exclamation-triangle fa-2x"></i>
+                    <p class="mt-2">Error loading drive information</p>
+                    <small>${error.message}</small>
+                </div>
+            `;
+        });
+}
+
+// Simple initialization - wait for page to be ready
+function initializeDashboard() {
+    console.log('Dashboard initializing...');
+    
+    // Load drives immediately - direct call
+    loadDrivesDirectly();
+    
+    // Also try calling updateSystemInfo if it exists
+    if (typeof updateSystemInfo === 'function') {
+        console.log('Calling updateSystemInfo...');
+        updateSystemInfo(true);
+    }
+    
+    // Load scan status and history
+    updateRealtimeStatusSafe();
+    refreshScanHistorySafe();
+    
+    // Set up periodic updates
+    if (statusUpdateInterval) {
+        clearInterval(statusUpdateInterval);
+    }
+    statusUpdateInterval = setInterval(updateRealtimeStatusSafe, 5000);
+    
+    // Also refresh drives periodically
+    setInterval(loadDrivesDirectly, 30000); // Every 30 seconds
+}
+
+// Run when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeDashboard);
+} else {
+    // DOM already loaded
+    initializeDashboard();
+}
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', function() {
+    if (statusUpdateInterval) {
+        clearInterval(statusUpdateInterval);
+    }
+});
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', function() {
+    if (statusUpdateInterval) {
+        clearInterval(statusUpdateInterval);
+    }
+});
+</script>
+{% endblock %}

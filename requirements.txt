@@ -1,0 +1,31 @@
+# Core dependencies
+click==8.1.7
+colorama==0.4.6
+tqdm==4.66.1
+
+# File processing
+python-magic==0.4.27
+chardet==5.2.0
+
+# Crypto detection
+pycryptodome==3.19.0
+base58==2.1.1
+ecdsa==0.18.0
+
+# Report generation
+jinja2==3.1.2
+markdown==3.5.1
+
+# System monitoring
+psutil==5.9.6
+
+# Web framework
+flask==3.0.0
+flask-cors==4.0.0
+werkzeug==3.0.1
+
+# Development
+pytest==7.4.3
+black==23.11.0
+flake8==6.1.0
+

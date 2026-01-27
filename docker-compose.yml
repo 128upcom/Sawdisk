@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  python:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ocelot-python
+    ports:
+      - "5000:5000"  # Flask web interface
+      - "8080:8080"  # Alternative port
+    volumes:
+      - ./workspace:/app/workspace
+      - ./data:/app/data
+      - ./documentation:/app/documentation
+      # Mount external volumes for scanning (adjust paths as needed)
+      - /Volumes:/mnt/volumes:ro
+      # Mount macOS Users directory (typically on system drive)
+      - /Users:/mnt/users:ro
+    working_dir: /app
+    environment:
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+      - FLASK_ENV=development
+      - FLASK_DEBUG=1
+    command: python workspace/SawDisk/web_app.py
+    privileged: true  # Required for accessing external drives
+

@@ -1,0 +1,223 @@
+/* SawDisk Custom Styles */
+
+:root {
+    --primary-color: #2c3e50;
+    --secondary-color: #3498db;
+    --success-color: #27ae60;
+    --warning-color: #f39c12;
+    --danger-color: #e74c3c;
+    --dark-color: #2c3e50;
+    --light-color: #ecf0f1;
+}
+
+body {
+    background-color: #f8f9fa;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.navbar-brand {
+    font-weight: bold;
+    font-size: 1.5rem;
+}
+
+/* Cards */
+.card {
+    border: none;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    transition: transform 0.2s ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+}
+
+/* Status Cards */
+.card.bg-primary,
+.card.bg-success,
+.card.bg-info,
+.card.bg-warning {
+    border-radius: 15px;
+}
+
+.card-body h4 {
+    font-weight: bold;
+}
+
+.card-body i.fa-2x {
+    opacity: 0.8;
+}
+
+/* Progress Bars */
+.progress {
+    height: 8px;
+    border-radius: 10px;
+}
+
+.progress-bar {
+    border-radius: 10px;
+}
+
+/* Buttons */
+.btn {
+    border-radius: 8px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+}
+
+.btn-lg {
+    padding: 15px 30px;
+    font-size: 1.1rem;
+}
+
+/* Status indicators */
+.status-ready { color: var(--success-color); }
+.status-running { color: var(--warning-color); }
+.status-error { color: var(--danger-color); }
+
+/* Confidence badges */
+.confidence-high { background-color: var(--danger-color); }
+.confidence-medium { background-color: var(--warning-color); }
+.confidence-low { background-color: var(--success-color); }
+
+/* File browser */
+.file-item {
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+    transition: background-color 0.2s ease;
+}
+
+.file-item:hover {
+    background-color: #f5f5f5;
+}
+
+.file-icon {
+    width: 20px;
+    margin-right: 10px;
+}
+
+/* Results table */
+.table th {
+    border-top: none;
+    background-color: #f8f9fa;
+    font-weight: 600;
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+/* Loading spinners */
+.spinner-sm {
+    width: 1rem;
+    height: 1rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .card-body h4 {
+        font-size: 1.5rem;
+    }
+    
+    .btn-lg {
+        padding: 12px 20px;
+        font-size: 1rem;
+    }
+}
+
+/* Animation classes */
+.fade-in {
+    animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.slide-in {
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(0); }
+}
+
+/* Alert customization */
+.alert {
+    border-radius: 8px;
+    border: none;
+}
+
+.alert-success {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.alert-warning {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.alert-danger {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.alert-info {
+    background-color: #d1ecf1;
+    color: #0c5460;
+}
+
+/* Modal customization */
+.modal-content {
+    border-radius: 15px;
+    border: none;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+}
+
+.modal-header {
+    border-bottom: 1px solid #eee;
+    border-radius: 15px 15px 0 0;
+}
+
+.modal-footer {
+    border-top: 1px solid #eee;
+    border-radius: 0 0 15px 15px;
+}
+
+/* Toast customization */
+.toast {
+    border-radius: 8px;
+    border: none;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+}
+
+/* Utility classes */
+.text-ellipsis {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.cursor-pointer {
+    cursor: pointer;
+}
+
+.border-radius-lg {
+    border-radius: 15px;
+}
+
+.shadow-sm {
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.shadow-md {
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+}

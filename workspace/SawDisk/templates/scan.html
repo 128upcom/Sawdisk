@@ -1,0 +1,743 @@
+{% extends "base.html" %}
+
+{% block title %}Configure Scan - SawDisk{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="h2 mb-4">
+            <i class="fas fa-search text-primary"></i> 
+            Configure Scan
+        </h1>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Scan Configuration -->
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-cog"></i> Scan Configuration
+                </h5>
+            </div>
+            <div class="card-body">
+                <form id="scan-form">
+                    <!-- Drive Selection -->
+                    <div class="mb-3">
+                        <label for="drive-select" class="form-label">
+                            <i class="fas fa-hdd"></i> Select Drive
+                        </label>
+                        <div class="input-group">
+                            <select class="form-select" id="drive-select" onchange="onDriveSelect()">
+                                <option value="">Choose a drive...</option>
+                            </select>
+                            <button class="btn btn-outline-primary" type="button" onclick="refreshDriveList()" title="Refresh drive list">
+                                <i class="fas fa-sync"></i>
+                            </button>
+                        </div>
+                        <div class="form-label">Or browse custom path:</div>
+                        
+                        <!-- Scan Path -->
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="scan-path" 
+                                   value="/mnt/volumes" placeholder="Enter path to scan">
+                            <button class="btn btn-outline-secondary" type="button" onclick="browseForPath()">
+                                <i class="fas fa-folder-open"></i> Browse
+                            </button>
+                        </div>
+                        <div class="form-text">Select a drive from the dropdown above or enter a custom path</div>
+                    </div>
+                    
+                    <!-- Output Directory -->
+                    <div class="mb-3">
+                        <label for="output-dir" class="form-label">
+                            <i class="fas fa-save"></i> Output Directory
+                        </label>
+                        <input type="text" class="form-control" id="output-dir" 
+                               value="/app/data/sawdisk_reports" placeholder="Report output directory">
+                        <div class="form-text">Directory to save generated reports</div>
+                    </div>
+                    
+                    <!-- Report Format -->
+                    <div class="mb-3">
+                        <label for="report-format" class="form-label">
+                            <i class="fas fa-file-alt"></i> Report Format
+                        </label>
+                        <select class="form-select" id="report-format">
+                            <option value="html">HTML (Recommended)</option>
+                            <option value="json">JSON</option>
+                            <option value="markdown">Markdown</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Advanced Settings -->
+                    <div class="card mt-3">
+                        <div class="card-header">
+                            <h6 class="mb-0">
+                                <i class="fas Fa-wrench"></i> Advanced Settings
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label for="max-depth" class="form-label">Max Directory Depth</label>
+                                    <input type="number" class="form-control" id="max-depth" 
+                                           value="20" min="1" max="100">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="threads" class="form-label">Scan Threads</label>
+                                    <input type="number" class="form-control" id="threads" 
+                                           value="4" min="1" max="16">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div class="mt-4">
+                        <button type="button" class="btn btn-primary btn-lg" onclick="startScan()">
+                            <i class="fas fa-play"></i> Start Scan
+                        </button>
+                        <button type="button" class="btn btn-secondary btn-lg" onclick="previewPath()">
+                            <i class="fas fa-eye"></i> Preview Path
+                        </button>
+                        <button type="button" class="btn btn-outline-info btn-lg" onclick="toggleLogViewer()" id="log-toggle-btn">
+                            <i class="fas fa-terminal"></i> Show Log
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Live Progress -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-spinner"></i> Scan Progress
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="progress-container">
+                    <!-- Progress content will be updated via JavaScript -->
+                    <div class="text-center">
+                        <i class="fas fa-stop-circle fa-3x text-muted"></i>
+                        <p class="mt-2 text-muted">Ready to scan</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Live Log Viewer -->
+        <div class="card mt-3" id="log-container" style="display: none;">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">
+                        <i class="fas fa-terminal"></i> Live Activity Log
+                    </h6>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-secondary" onclick="toggleLogViewer()">
+                            <i class="fas fa-eye-slash"></i> Hide
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="clearLog()">
+                            <i class="fas fa-trash"></i> Clear
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div id="log-viewer" class="bg-dark text-light" style="height: 300px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 12px; padding: 10px;">
+                    <div class="log-entry">
+                        <span class="text-info">[INFO]</span> Ready to scan...
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- System Info -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-info-circle"></i> System Info
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="system-info">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Results Modal -->
+<div class="modal fade" id="resultsModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-search"></i> Scan Results
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="results-content">
+                    <!-- Results will be loaded here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-info" onclick="window.location.href='/summary'">
+                    <i class="fas fa-chart-bar"></i> View Summary
+                </button>
+                <button type="button" class="btn btn-primary" onclick="downloadReport()">
+                    <i class="fas fa-download"></i> Download Report
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let scanActive = false;
+let scanInterval = null;
+let availableDrives = [];
+let logViewerVisible = false;
+
+function loadAvailableDrives() {
+    console.log('Loading available drives...');
+    const selector = document.getElementById('drive-select');
+    if (!selector) {
+        console.error('drive-select element not found');
+        return;
+    }
+    
+    // Show loading state
+    selector.innerHTML = '<option value="">Loading drives...</option>';
+    selector.disabled = true;
+    
+    fetch('/api/system-info')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Drives data received:', data);
+            availableDrives = data.mounts || [];
+            populateDriveSelector();
+            selector.disabled = false;
+        })
+        .catch(error => {
+            console.error('Error loading drives:', error);
+            selector.innerHTML = '<option value="">Error loading drives</option>';
+            selector.disabled = false;
+            showNotification('Failed to load available drives: ' + error.message, 'error');
+        });
+}
+
+function populateDriveSelector() {
+    const selector = document.getElementById('drive-select');
+    if (!selector) {
+        console.error('drive-select element not found in populateDriveSelector');
+        return;
+    }
+    
+    console.log('Populating drive selector with', availableDrives.length, 'drives');
+    
+    // Clear existing options
+    selector.innerHTML = '<option value="">Choose a drive...</option>';
+    
+    if (availableDrives.length === 0) {
+        selector.innerHTML = '<option value="">No drives available</option>';
+        console.warn('No drives available to populate');
+        return;
+    }
+    
+    availableDrives.forEach((drive, index) => {
+        try {
+            const option = document.createElement('option');
+            option.value = drive.mountpoint || '';
+            const deviceName = drive.device || 'Unknown Drive';
+            const totalSize = drive.total || 'Unknown size';
+            const freeSpace = drive.free || 'Unknown';
+            option.textContent = `${deviceName} (${totalSize}, ${freeSpace} free)`;
+            
+            // Add drive info as data attributes
+            option.dataset.device = drive.device || '';
+            option.dataset.mountpoint = drive.mountpoint || '';
+            option.dataset.total = drive.total || '';
+            option.dataset.free = drive.free || '';
+            option.dataset.percent = drive.percent || '0';
+            
+            selector.appendChild(option);
+            console.log(`Added drive option ${index + 1}: ${deviceName} -> ${drive.mountpoint}`);
+        } catch (error) {
+            console.error('Error adding drive option:', error, drive);
+        }
+    });
+    
+    // Show count in UI (only if notification function exists)
+    if (typeof showNotification === 'function') {
+        if (availableDrives.length > 0) {
+            showNotification(`Loaded ${availableDrives.length} available drive(s)`, 'success');
+        } else {
+            showNotification('No drives available for scanning', 'warning');
+        }
+    }
+    
+    console.log('Drive selector populated successfully');
+}
+
+function onDriveSelect() {
+    const selector = document.getElementById('drive-select');
+    const selectedOption = selector.options[selector.selectedIndex];
+    
+    if (selectedOption.value) {
+        // Update scan path input
+        document.getElementById('scan-path').value = selectedOption.value;
+        
+        // Show drive info
+        showDriveInfo(selectedOption);
+        
+        // Preview the path
+        previewSelectedPath(selectedOption.value);
+    } else {
+        // Clear drive info
+        clearDriveInfo();
+    }
+}
+
+function showDriveInfo(option) {
+    const driveInfoContainer = document.getElementById('drive-info-container');
+    if (!driveInfoContainer) {
+        // Create drive info container if it doesn't exist
+        const newContainer = document.createElement('div');
+        newContainer.id = 'drive-info-container';
+        newContainer.className = 'card mt-3 bg-light';
+        newContainer.innerHTML = `
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="fas fa-info-circle"></i> Selected Drive Information
+                </h6>
+                <div id="drive-details"></div>
+            </div>
+        `;
+        
+        // Insert after the drive selection
+        const driveSelectDiv = document.querySelector('[for="drive-select"]').parentElement;
+        driveSelectDiv.insertAdjacentElement('afterend', newContainer);
+    }
+    
+    const detailsDiv = document.getElementById('drive-details');
+    detailsDiv.innerHTML = `
+        <div class="row">
+            <div class="col-md-6">
+                <strong>Device:</strong> ${option.dataset.device}<br>
+                <strong>Path:</strong> ${option.dataset.mountpoint}<br>
+                <strong>Total Size:</strong> ${option.dataset.total}
+            </div>
+            <div class="col-md-6">
+                <strong>Free Space:</strong> ${option.dataset.free}<br>
+                <strong>Usage:</strong> ${option.dataset.percent}%<br>
+                <div class="progress mt-2" style="height: 8px;">
+                    <div class="progress-bar" style="width: ${option.dataset.percent}%"></div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function clearDriveInfo() {
+    const driveInfoContainer = document.getElementById('drive-info-container');
+    if (driveInfoContainer) {
+        driveInfoContainer.remove();
+    }
+}
+
+function previewSelectedPath(path) {
+    // Enable/disable browse button based on selection
+    const browseBtn = document.querySelector('[onclick="browseForPath()"]');
+    
+    // Show brief loading info
+    showNotification(`Selected path: ${path}`, 'info');
+}
+
+function refreshDriveList() {
+    loadAvailableDrives();
+}
+
+// Log viewer functions
+function toggleLogViewer() {
+    const logContainer = document.getElementById('log-container');
+    const toggleBtn = document.getElementById('log-toggle-btn');
+    
+    logViewerVisible = !logViewerVisible;
+    
+    if (logViewerVisible) {
+        logContainer.style.display = 'block';
+        toggleBtn.innerHTML = '<i class="fas fa-eye-slash"></i> Hide Log';
+        toggleBtn.className = 'btn btn-outline-warning btn-lg';
+        
+        // Auto-scroll to bottom if scan is running
+        if (scanActive) {
+            scrollLogToBottom();
+        }
+        
+        addLogEntry('[INFO]', 'Log viewer opened', 'info');
+    } else {
+        logContainer.style.display = 'none';
+        toggleBtn.innerHTML = '<i class="fas fa-terminal"></i> Show Log';
+        toggleBtn.className = 'btn btn-outline-info btn-lg';
+    }
+}
+
+function addLogEntry(type, message, level = 'info') {
+    const logViewer = document.getElementById('log-viewer');
+    if (!logViewer) return;
+    
+    const timestamp = new Date().toLocaleTimeString();
+    const colorClass = level === 'error' ? 'text-danger' : 
+                     level === 'success' ? 'text-success' : 
+                     level === 'warning' ? 'text-warning' : 'text-info';
+    
+    const logEntry = document.createElement('div');
+    logEntry.className = 'log-entry mb-1';
+    logEntry.innerHTML = `
+        <span class="text-muted">[${timestamp}]</span> 
+        <span class="${colorClass}">${type}</span> 
+        ${message}
+    `;
+    
+    logViewer.appendChild(logEntry);
+    
+    // Keep only last 100 entries
+    const entries = logViewer.querySelectorAll('.log-entry');
+    if (entries.length > 100) {
+        entries[0].remove();
+    }
+    
+    scrollLogToBottom();
+}
+
+function scrollLogToBottom() {
+    const logViewer = document.getElementById('log-viewer');
+    if (logViewer) {
+        logViewer.scrollTop = logViewer.scrollHeight;
+    }
+}
+
+function clearLog() {
+    const logViewer = document.getElementById('log-viewer');
+    if (logViewer) {
+        logViewer.innerHTML = '<div class="log-entry"><span class="text-info">[INFO]</span> Log cleared...</div>';
+    }
+}
+
+function formatTime(seconds) {
+    if (seconds < 60) return `${seconds.toFixed(1)}s`;
+    if (seconds < 3600) return `${Math.floor(seconds/60)}m ${(seconds%60).toFixed(1)}s`;
+    return `${Math.floor(seconds/3600)}h ${Math.floor((seconds%3600)/60)}m`;
+}
+
+function startScan() {
+    if (scanActive) {
+        showNotification('Scan already in progress', 'warning');
+        return;
+    }
+    
+    const formData = {
+        scan_path: document.getElementById('scan-path').value,
+        output_dir: document.getElementById('output-dir').value,
+        report_format: document.getElementById('report-format').value,
+        max_depth: parseInt(document.getElementById('max-depth').value),
+        threads: parseInt(document.getElementById('threads').value),
+        verbose: true
+    };
+    
+    // Validate inputs
+    if (!formData.scan_path) {
+        showNotification('Please specify a scan path', 'error');
+        return;
+    }
+    
+        // Log scan start
+        addLogEntry('[INFO]', `Starting scan of: ${formData.scan_path}`, 'info');
+        addLogEntry('[CONFIG]', `Threads: ${formData.threads}, Depth: ${formData.max_depth}, Format: ${formData.report_format}`, 'info');
+        
+        fetch('/api/scan/start', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            showNotification('Error: ' + data.error, 'error');
+            addLogEntry('[ERROR]', `Failed to start scan: ${data.error}`, 'error');
+        } else {
+            showNotification('Scan started successfully!', 'success');
+            addLogEntry('[SUCCESS]', 'Scan process initiated', 'success');
+            scanActive = true;
+            updateProgress();
+            scanInterval = setInterval(updateProgressFromAPI, 1000);
+        }
+    });
+}
+
+function updateProgress() {
+    updateProgressFromAPI();
+}
+
+function updateProgressFromAPI() {
+    fetch('/api/scan/status')
+    .then(response => response.json())
+    .then(data => {
+        updateProgressDisplay(data);
+        updateProgressLog(data);
+        
+        if (!data.is_running && scanActive) {
+            scanActive = false;
+            clearInterval(scanInterval);
+            addLogEntry('[COMPLETE]', `Scan finished! Found ${data.results ? data.results.length : 0} items`, 'success');
+            showCompletedModal(data);
+        }
+    });
+}
+
+function updateProgressLog(data) {
+    if (!logViewerVisible || !scanActive) return;
+    
+    // Update log every 25 files or when status changes
+    if (data.files_scanned && data.files_scanned % 25 === 0) {
+        const percent = data.progress ? data.progress.toFixed(1) : '0';
+        const fps = data.files_per_second ? data.files_per_second.toFixed(1) : '0';
+        const eta = data.eta_seconds > 0 ? formatTime(data.eta_seconds) : 'calculating...';
+        
+        addLogEntry('[PROGRESS]', `${percent}% - ${data.files_scanned}/${data.estimated_total_files} files (${fps} files/sec) - ETA: ${eta}`, 'info');
+    }
+    
+    // Log interesting files being scanned
+    if (data.current_file && data.current_file !== localStorage.getItem('lastLoggedFile')) {
+        const fileName = data.current_file.split('/').pop();
+        if (fileName.match(/\.(wallet|key|dat|json|txt)$/i)) {
+            addLogEntry('[SCAN]', `Analyzing: ${fileName}`, 'warning');
+            localStorage.setItem('lastLoggedFile', data.current_file);
+        }
+    }
+    
+    // Log crypto items found
+    if (data.files_found && data.files_found > (parseInt(localStorage.getItem('lastLoggedFinds') || '0'))) {
+        addLogEntry('[FOUND]', `Crypto item detected! Total found: ${data.files_found}`, 'success');
+        localStorage.setItem('lastLoggedFinds', data.files_found.toString());
+    }
+}
+
+function updateProgressDisplay(data) {
+    const container = document.getElementById('progress-container');
+    
+    if (data.is_running) {
+        const currentFile = data.current_file ? data.current_file.split('/').pop() : 'Initializing...';
+        const progressPercent = data.progress ? data.progress.toFixed(1) : '0';
+        const filesScanned = data.files_scanned || 0;
+        const totalFiles = data.estimated_total_files || 0;
+        const filesFound = data.files_found || 0;
+        const fps = data.files_per_second ? data.files_per_second.toFixed(1) : '0';
+        const elapsed = data.elapsed_time ? formatTime(data.elapsed_time) : '0s';
+        const eta = data.eta_seconds > 0 ? formatTime(data.eta_seconds) : 'calculating...';
+        
+        container.innerHTML = `
+            <div class="mb-3">
+                <div class="d-flex justify-content-between">
+                    <span><strong>Progress</strong></span>
+                    <span><strong>${progressPercent}%</strong></span>
+                </div>
+                <div class="progress mb-2" style="height: 20px;">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" 
+                         role="progressbar" style="width: ${progressPercent}%">
+                        <span class="text-dark fw-bold">${progressPercent}%</span>
+                    </div>
+                </div>
+                <div class="row text-center mb-2">
+                    <div class="col-6">
+                        <small class="text-muted">Files Scanned</small><br>
+                        <strong>${filesScanned.toLocaleString()}</strong>
+                    </div>
+                    <div class="col-6">
+                        <small class="text-muted">Crypto Items Found</small><br>
+                        <strong class="text-success">${filesFound}</strong>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="alert alert-info">
+                <div class="d-flex align-items-start">
+                    <i class="fas fa-search me-2"></i>
+                    <div>
+                        <strong>Current File:</strong><br>
+                        <span class="text-truncate d-inline-block" style="max-width: 200px;" title="${data.current_file}">${currentFile}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row text-center">
+                <div class="col-4">
+                    <small class="text-muted">Speed</small><br>
+                    <strong>${fps} files/sec</strong>
+                </div>
+                <div class="col-4">
+                    <small class="text-muted">Elapsed</small><br>
+                    <strong>${elapsed}</strong>
+                </div>
+                <div class="col-4">
+                    <small class="text-muted">ETA</small><br>
+                    <strong>${eta}</strong>
+                </div>
+            </div>
+            
+            <div class="mt-2">
+                <small class="text-muted">Total files to process: ${totalFiles.toLocaleString()}</small>
+            </div>
+        `;
+    } else {
+        container.innerHTML = `
+            <div class="text-center">
+                <i class="fas fa-stop-circle fa-3x text-muted"></i>
+                <p class="mt-2 text-muted">Ready to scan</p>
+            </div>
+        `;
+    }
+}
+
+function showCompletedModal(data) {
+    const modal = new bootstrap.Modal(document.getElementById('resultsModal'));
+    
+    // Show results
+    const resultsContent = document.getElementById('results-content');
+    if (data.results && data.results.length > 0) {
+        let html = `<h6>Found ${data.results.length} crypto-related items:</h6><ul class="list-group">`;
+        
+        data.results.forEach(result => {
+            html += `
+                <li class="list-group-item">
+                    <div class="d-flex w-100 justify-content-between">
+                        <h6 class="mb-1">${result.item_type}</h6>
+                        <small>${(result.confidence * 100).toFixed(1)}% confidence</small>
+                    </div>
+                    <p class="mb-1"><strong>Path:</strong> ${result.file_path}</p>
+                    <small>Size: ${formatFileSize(result.file_size)}</small>
+                `;
+        });
+        
+        html += '</ul>';
+        resultsContent.innerHTML = html;
+    } else {
+        resultsContent.innerHTML = '<p class="text-muted">No crypto-related items found.</p>';
+    }
+    
+    modal.show();
+}
+
+function browseForPath() {
+    const path = document.getElementById('scan-path').value || '/mnt/volumes';
+    
+    // Show a simple path browser (could be enhanced later)
+    fetch(`/api/browse?path=${encodeURIComponent(path)}`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            showNotification('Error browsing: ' + data.error, 'error');
+        } else {
+            // For now, just show a simple alert with available directories
+            const dirs = data.items.filter(item => item.type === 'directory');
+            if (dirs.length > 0) {
+                const dirList = dirs.slice(0, 10).map(dir => dir.name).join('\n');
+                alert(`Available directories in ${path}:\n\n${dirList}`);
+            } else {
+                alert(`No accessible directories found in ${path}`);
+            }
+        }
+    });
+}
+
+function previewPath() {
+    const path = document.getElementById('scan-path').value;
+    if (!path) {
+        showNotification('Please specify a path to preview', 'warning');
+        return;
+    }
+    
+    browseForPath();
+}
+
+function downloadReport() {
+    fetch('/api/results')
+    .then(response => response.json())
+    .then(data => {
+        if (data.report_path) {
+            window.open('/reports/' + data.report_path.split('/').pop(), '_blank');
+        } else {
+            showNotification('No report available', 'warning');
+        }
+    });
+}
+
+// Utility function for file size formatting
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+// Initialize page
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Scan page initializing...');
+    
+    // Load drives immediately - this is the most important
+    loadAvailableDrives();
+    
+    // Also update system info if function exists (for the system info panel)
+    if (typeof updateSystemInfo === 'function') {
+        updateSystemInfo();
+    }
+    
+    // Check for drive parameter in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const driveParam = urlParams.get('drive');
+    if (driveParam) {
+        console.log('Drive parameter found in URL:', driveParam);
+        // Pre-select the drive after a delay to ensure drives are loaded
+        setTimeout(() => {
+            const selector = document.getElementById('drive-select');
+            if (selector && selector.options.length > 1) {
+                for (let i = 0; i < selector.options.length; i++) {
+                    const option = selector.options[i];
+                    if (option.value === driveParam) {
+                        selector.selectedIndex = i;
+                        onDriveSelect();
+                        console.log('Pre-selected drive:', driveParam);
+                        break;
+                    }
+                }
+            } else {
+                console.warn('Drive selector not ready or no drives loaded yet');
+            }
+        }, 1500); // Wait for drives to load
+    }
+});
+</script>
+{% endblock %}
