@@ -49,7 +49,7 @@ Or use the helper script:
 ### 3. Run a scan
 
 1. Go to **Scan**.
-2. Choose a drive (e.g. `/mnt/volumes/PoCII` or `/mnt/users` for macOS system drive).
+2. Choose a drive (e.g. **/PoCII** at `/mnt/volumes/PoCII` or `/mnt/users` for macOS system drive).
 3. Set threads and max depth.
 4. Click **Start Scan**. Progress and results appear on the dashboard and scan page.
 
@@ -114,7 +114,7 @@ Examples:
 docker compose exec python python workspace/SawDisk/main.py
 
 # Specific path, HTML report
-docker compose exec python python workspace/SawDisk/main.py -p /mnt/volumes/PoCII -f html -o /app/data/reports
+docker compose exec python python workspace/SawDisk/main.py -p /mnt/volumes/PoCII -f html -o /app/data/reports  # volume /PoCII
 
 # More threads and depth, verbose
 docker compose exec python python workspace/SawDisk/main.py -p /path/to/scan -t 8 -d 30 -v
