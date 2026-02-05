@@ -177,6 +177,14 @@ class ScanManager:
                     scan_path_obj = Path(session.config.scan_path) if not isinstance(session.config.scan_path, Path) else session.config.scan_path
                     drive_name = scan_path_obj.name if hasattr(scan_path_obj, 'name') else Path(scan_path_str).name
                     
+                    # Get scan stats and convert sets to lists for JSON serialization
+                    scan_stats = session.scanner.scan_progress.get('scan_stats', {}).copy()
+                    if 'extensions_found' in scan_stats and isinstance(scan_stats['extensions_found'], set):
+                        scan_stats['extensions_found'] = list(scan_stats['extensions_found'])
+                    if 'directories_scanned' in scan_stats and isinstance(scan_stats['directories_scanned'], list):
+                        # Limit directories list size to avoid huge JSON
+                        scan_stats['directories_scanned'] = scan_stats['directories_scanned'][-100:]
+                    
                     return {
                         'status': 'running',
                         'is_running': True,
@@ -193,7 +201,7 @@ class ScanManager:
                         'files_per_second': progress.get('files_per_second', 0),
                         'eta_seconds': progress.get('eta_seconds', 0),
                         'start_time': session.start_time,
-                        'scan_stats': session.scanner.scan_progress.get('scan_stats', {}),
+                        'scan_stats': scan_stats,
                         'results': session.results or [],
                         'stop_requested': session.stop_requested
                     }
@@ -260,12 +268,26 @@ class ScanManager:
                     scan_record = self.scan_history.get_scan(session.scan_id)
                     if scan_record:
                         scan_record.files_found = len(session.results)
-                        scan_record.total_files_scanned = session.scanner.scan_progress['scan_stats']['total_files_scanned']
+                        scan_record.total_files_scanned = session.scanner.scan_progress.get('scan_stats', {}).get('total_files_scanned', 0)
                         scan_record.scan_duration = time.time() - session.start_time
                         scan_record.drive_size = drive_size
                         scan_record.report_files = {'html': report_path} if report_path else {}
                         scan_record.status = 'completed'
                         self.scan_history.save_scan(scan_record)
+                        print(f"✅ Scan record updated: {len(session.results)} items found, {scan_record.total_files_scanned} files scanned")
+                        
+                        # Save detailed summary to JSON file for later retrieval
+                        try:
+                            import json
+                            summary = session.scanner.get_scan_summary()
+                            summary['scan_id'] = session.scan_id
+                            summary['timestamp'] = scan_record.timestamp
+                            summary_file = scan_dir / 'summary.json'
+                            with open(summary_file, 'w') as f:
+                                json.dump(summary, f, indent=2, default=str)
+                            print(f"💾 Saved scan summary to {summary_file}")
+                        except Exception as e:
+                            print(f"⚠️  Failed to save scan summary: {e}")
                 
                 session.status = 'completed'
                 print(f"Scan completed successfully: {session.scan_id}")
@@ -291,8 +313,9 @@ class ScanManager:
                 self.scan_history.save_scan(scan_record)
         
         finally:
-            with self.session_lock:
-                self.current_session = None
+            # Don't clear session immediately - keep it for status queries
+            # Session will be cleared when a new scan starts
+            print(f"Scan thread finished for: {session.scan_id}")
     
     def _generate_scan_id(self) -> str:
         """Generate unique scan ID"""

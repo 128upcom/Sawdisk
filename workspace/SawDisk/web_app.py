@@ -391,16 +391,72 @@ def get_results():
 
 @app.route('/api/scan/summary')
 def get_scan_summary():
-    """Get comprehensive scan summary with detailed statistics"""
-    global scan_manager
+    """Get comprehensive scan summary with detailed statistics for a specific scan"""
+    global scan_manager, scan_history
     
-    # Get current session from scan manager
+    # Get scan_id from query parameter (optional)
+    scan_id = request.args.get('scan_id', None)
+    
+    # If scan_id provided, load that scan's summary
+    if scan_id:
+        try:
+            scan_record = scan_history.get_scan(scan_id)
+            if not scan_record:
+                return jsonify({'error': f'Scan {scan_id} not found'}), 404
+            
+            # Try to load saved summary from scan directory
+            scan_dir = scan_history.data_dir / scan_id
+            summary_file = scan_dir / 'summary.json'
+            
+            if summary_file.exists():
+                with open(summary_file, 'r') as f:
+                    summary = json.load(f)
+                    # Add scan_id and timestamp for context
+                    summary['scan_id'] = scan_id
+                    summary['timestamp'] = scan_record.timestamp
+                    return jsonify(summary)
+            else:
+                # Generate summary from scan record data
+                return jsonify({
+                    'scan_id': scan_id,
+                    'timestamp': scan_record.timestamp,
+                    'scan_path': scan_record.scan_path,
+                    'scan_duration': scan_record.scan_duration,
+                    'scan_summary': {
+                        'total_files_found': scan_record.total_files_scanned,
+                        'total_directories_scanned': 0,
+                        'total_bytes_scanned': 0,
+                        'total_bytes_scanned_readable': 'N/A',
+                        'files_analyzed': scan_record.total_files_scanned,
+                        'crypto_items_found': scan_record.files_found,
+                        'crypto_extensions_found': 0,
+                        'scan_depth_reached': 0,
+                        'max_depth_configured': 0,
+                        'threads_used': 0,
+                        'scan_speed_files_per_second': scan_record.total_files_scanned / scan_record.scan_duration if scan_record.scan_duration > 0 else 0,
+                        'scan_speed_mb_per_second': 0
+                    },
+                    'file_statistics': {
+                        'unique_extensions_found': 0,
+                        'total_extensions': [],
+                        'top_10_file_types': [],
+                        'largest_file': {'size': 0, 'size_readable': 'N/A', 'path': ''},
+                        'crypto_related_files': 0
+                    },
+                    'scan_results': []
+                })
+        except Exception as e:
+            return jsonify({'error': f'Failed to load scan summary: {str(e)}'}), 500
+    
+    # No scan_id provided - use current session
     if not scan_manager.current_session or not scan_manager.current_session.scanner:
-        return jsonify({'error': 'No scan has been performed yet'}), 404
+        return jsonify({'error': 'No scan has been performed yet. Please provide a scan_id or start a scan.'}), 404
     
     try:
         scanner = scan_manager.current_session.scanner
         summary = scanner.get_scan_summary()
+        # Add scan_id for consistency
+        summary['scan_id'] = scan_manager.current_session.scan_id
         return jsonify(summary)
     except Exception as e:
         return jsonify({'error': f'Failed to generate summary: {str(e)}'}), 500

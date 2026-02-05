@@ -4,11 +4,21 @@
 
 {% block content %}
 <div class="row">
-    <div class="col-md-12">
+    <div class="col-md-8">
         <h1 class="h2 mb-4">
             <i class="fas fa-chart-bar text-success"></i> 
             Scan Summary
         </h1>
+    </div>
+    <div class="col-md-4">
+        <div class="mb-4">
+            <label for="scan-select" class="form-label">
+                <i class="fas fa-history"></i> Select Scan:
+            </label>
+            <select id="scan-select" class="form-select" onchange="loadScanSummary(this.value)">
+                <option value="">Loading scans...</option>
+            </select>
+        </div>
     </div>
 </div>
 
@@ -126,35 +136,142 @@
 
 {% block extra_scripts %}
 <script>
-function loadScanSummary() {
-    fetch('/api/scan/summary')
-        .then(response => response.json())
+let currentScanId = null;
+
+function loadScanHistory() {
+    console.log('Loading scan history...');
+    fetch('/api/scan/history')
+        .then(response => {
+            console.log('History response status:', response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
+            console.log('Scan history loaded:', data);
             if (data.error) {
+                console.error('Error loading scan history:', data.error);
+                showError('Failed to load scan history: ' + data.error);
+                return;
+            }
+            
+            const select = document.getElementById('scan-select');
+            if (!select) {
+                console.error('Scan select element not found');
+                showError('Page structure error: scan selector not found');
+                return;
+            }
+            
+            select.innerHTML = '<option value="">Latest Scan (Current Session)</option>';
+            
+            if (data.scans && data.scans.length > 0) {
+                console.log(`Found ${data.scans.length} scans`);
+                data.scans.forEach(scan => {
+                    const option = document.createElement('option');
+                    option.value = scan.scan_id;
+                    const date = new Date(scan.timestamp);
+                    const dateStr = date.toLocaleString();
+                    option.textContent = `${scan.drive_name} - ${dateStr} (${scan.files_found} items)`;
+                    select.appendChild(option);
+                });
+                
+                // Load latest scan by default
+                currentScanId = data.scans[0].scan_id;
+                select.value = currentScanId;
+                console.log('Loading summary for scan:', currentScanId);
+                loadScanSummary(currentScanId);
+            } else {
+                console.log('No scans in history, trying current session');
+                // No scans in history, try to load current session
+                loadScanSummary(null);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading scan history:', error);
+            showError('Failed to load scan history: ' + error.message + '. Trying current session...');
+            loadScanSummary(null);
+        });
+}
+
+function loadScanSummary(scanId) {
+    currentScanId = scanId;
+    const url = scanId ? `/api/scan/summary?scan_id=${scanId}` : '/api/scan/summary';
+    console.log('Loading scan summary from:', url);
+    
+    // Show loading state
+    const scanInfo = document.getElementById('scan-info');
+    if (scanInfo) {
+        scanInfo.innerHTML = `
+            <div class="text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2">Loading scan summary...</p>
+            </div>
+        `;
+    }
+    
+    fetch(url)
+        .then(response => {
+            console.log('Summary response status:', response.status);
+            if (!response.ok) {
+                return response.json().then(data => {
+                    throw new Error(data.error || 'Failed to load summary');
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Summary data received:', data);
+            if (data.error) {
+                console.error('Summary error:', data.error);
                 showError(data.error);
                 return;
             }
             
+            console.log('Displaying summary...');
             displayScanSummary(data);
         })
         .catch(error => {
             console.error('Error loading scan summary:', error);
-            showError('Failed to load scan summary');
+            showError('Failed to load scan summary: ' + error.message);
         });
 }
 
 function displayScanSummary(summary) {
-    displayOverviewCards(summary);
-    displayScanInfo(summary);
-    displayFileDistribution(summary);
-    displayCryptoResults(summary);
-    displayPerformanceMetrics(summary);
-    displayDetailedStats(summary);
+    // Update page title with scan info if available
+    if (summary.scan_id) {
+        const date = summary.timestamp ? new Date(summary.timestamp).toLocaleString() : '';
+        document.title = `Scan Summary - ${summary.scan_id}${date ? ' (' + date + ')' : ''} - SawDisk`;
+    }
+    
+    try {
+        displayOverviewCards(summary);
+        displayScanInfo(summary);
+        displayFileDistribution(summary);
+        displayCryptoResults(summary);
+        displayPerformanceMetrics(summary);
+        displayDetailedStats(summary);
+    } catch (error) {
+        console.error('Error displaying scan summary:', error);
+        showError('Error displaying summary: ' + error.message);
+    }
 }
 
 function displayOverviewCards(summary) {
+    if (!summary || !summary.scan_summary) {
+        console.error('Invalid summary data:', summary);
+        return;
+    }
+    
     const summary_stats = summary.scan_summary;
     const container = document.getElementById('overview-cards');
+    
+    if (!container) {
+        console.error('Overview cards container not found');
+        return;
+    }
     
     container.innerHTML = `
         <div class="col-md-3">
@@ -224,7 +341,17 @@ function displayOverviewCards(summary) {
 }
 
 function displayScanInfo(summary) {
+    if (!summary || !summary.scan_summary) {
+        console.error('Invalid summary data for scan info:', summary);
+        return;
+    }
+    
     const container = document.getElementById('scan-info');
+    if (!container) {
+        console.error('Scan info container not found');
+        return;
+    }
+    
     const summary_stats = summary.scan_summary;
     
     container.innerHTML = `
@@ -261,8 +388,18 @@ function displayScanInfo(summary) {
 }
 
 function displayFileDistribution(summary) {
+    if (!summary || !summary.file_statistics) {
+        console.error('Invalid summary data for file distribution:', summary);
+        return;
+    }
+    
     const container = document.getElementById('file-distribution');
-    const fileTypes = summary.file_statistics.top_10_file_types;
+    if (!container) {
+        console.error('File distribution container not found');
+        return;
+    }
+    
+    const fileTypes = summary.file_statistics.top_10_file_types || [];
     
     let html = '<div class="table-responsive"><table class="table table-sm">';
     html += '<thead><tr><th>Extension</th><th>Count</th><th>Total Size</th></tr></thead><tbody>';
@@ -327,7 +464,17 @@ function displayCryptoResults(summary) {
 }
 
 function displayPerformanceMetrics(summary) {
+    if (!summary || !summary.scan_summary) {
+        console.error('Invalid summary data for performance metrics:', summary);
+        return;
+    }
+    
     const container = document.getElementById('performance-metrics');
+    if (!container) {
+        console.error('Performance metrics container not found');
+        return;
+    }
+    
     const summary_stats = summary.scan_summary;
     
     container.innerHTML = `
@@ -365,7 +512,17 @@ function displayPerformanceMetrics(summary) {
 }
 
 function displayDetailedStats(summary) {
+    if (!summary || !summary.file_statistics) {
+        console.error('Invalid summary data for detailed stats:', summary);
+        return;
+    }
+    
     const container = document.getElementById('detailed-stats');
+    if (!container) {
+        console.error('Detailed stats container not found');
+        return;
+    }
+    
     const fileTypes = summary.file_statistics;
     
     container.innerHTML = `
@@ -430,16 +587,38 @@ function convertBytes(bytes) {
 }
 
 function showError(message) {
-    document.getElementById('scan-info').innerHTML = `
-        <div class="alert alert-danger">
-            <i class="fas fa-exclamation-triangle"></i> ${message}
-        </div>
-    `;
+    console.error('Showing error:', message);
+    const scanInfo = document.getElementById('scan-info');
+    if (scanInfo) {
+        scanInfo.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle"></i> ${message}
+            </div>
+        `;
+    }
+    
+    // Also show in overview cards area
+    const overviewCards = document.getElementById('overview-cards');
+    if (overviewCards) {
+        overviewCards.innerHTML = `
+            <div class="col-md-12">
+                <div class="alert alert-warning">
+                    <i class="fas fa-info-circle"></i> ${message}
+                </div>
+            </div>
+        `;
+    }
 }
 
 // Initialize page
 document.addEventListener('DOMContentLoaded', function() {
-    loadScanSummary();
+    console.log('Summary page loaded, initializing...');
+    try {
+        loadScanHistory();
+    } catch (error) {
+        console.error('Error initializing summary page:', error);
+        showError('Failed to initialize page: ' + error.message);
+    }
 });
 </script>
 {% endblock %}

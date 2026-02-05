@@ -50,15 +50,21 @@ class DiskScanner:
         self.scan_progress['start_time'] = time.time()
         print(f"🔍 Scanning path: {self.config.scan_path}")
         
+        # Update status to show we're collecting files
+        self.scan_progress['current_file'] = 'Collecting files...'
+        self.scan_progress['current_directory'] = str(self.config.scan_path)
+        
         # Get all files to scan
         files_to_scan = self._collect_files()
         
         if not files_to_scan:
             print("⚠️  No files found to scan")
+            self.scan_progress['estimated_total_files'] = 0
             return []
             
         print(f"📁 Found {len(files_to_scan)} files to scan")
         self.scan_progress['estimated_total_files'] = len(files_to_scan)
+        self.scan_progress['current_file'] = f'Starting scan of {len(files_to_scan)} files...'
         
         # Scan files with progress bar
         with ThreadPoolExecutor(max_workers=self.config.num_threads) as executor:
@@ -68,21 +74,42 @@ class DiskScanner:
                     for i, file_path in enumerate(files_to_scan)
                 }
                 
+                completed_count = 0
                 for future in as_completed(futures):
                     i, pbar = futures[future]
-                    result = future.result()
-                    pbar.update(1)
-                    
-                    self.scan_progress['files_scanned'] = i + 1
-                    self.scan_progress['current_file'] = files_to_scan[i]
-                    
-                    if result:
+                    try:
+                        result = future.result()
+                        pbar.update(1)
+                        completed_count += 1
+                        
+                        # Update progress (thread-safe)
                         with self.lock:
-                            self.results.append(result)
-                            self.scan_progress['files_found'] += 1
-                            
+                            # Use completed_count for accurate progress
+                            self.scan_progress['files_scanned'] = completed_count
+                            # Update current file being processed (use the file that just completed)
+                            if result and hasattr(result, 'file_path'):
+                                self.scan_progress['current_file'] = result.file_path
+                                file_path_obj = Path(result.file_path)
+                                self.scan_progress['current_directory'] = str(file_path_obj.parent)
+                            elif i < len(files_to_scan):
+                                current_file = files_to_scan[i]
+                                self.scan_progress['current_file'] = current_file
+                                file_path_obj = Path(current_file)
+                                self.scan_progress['current_directory'] = str(file_path_obj.parent)
+                        
+                        if result:
+                            with self.lock:
+                                self.results.append(result)
+                                self.scan_progress['files_found'] = len(self.results)
+                                
+                            if self.config.verbose:
+                                print(f"✅ Found: {result.item_type} - {result.file_path}")
+                    except Exception as e:
                         if self.config.verbose:
-                            print(f"✅ Found: {result.item_type} - {result.file_path}")
+                            print(f"⚠️  Error processing file: {e}")
+                        completed_count += 1
+                        with self.lock:
+                            self.scan_progress['files_scanned'] = completed_count
         
         print(f"🎯 Scan complete! Found {len(self.results)} crypto-related items")
         return self.results
@@ -90,13 +117,29 @@ class DiskScanner:
     def get_progress_info(self) -> dict:
         """Get current scan progress"""
         if self.scan_progress['start_time'] is None:
-            return self.scan_progress
+            # Convert sets to lists for JSON serialization
+            progress = self.scan_progress.copy()
+            if 'scan_stats' in progress and 'extensions_found' in progress['scan_stats']:
+                if isinstance(progress['scan_stats']['extensions_found'], set):
+                    progress['scan_stats'] = progress['scan_stats'].copy()
+                    progress['scan_stats']['extensions_found'] = list(progress['scan_stats']['extensions_found'])
+            return progress
             
         elapsed_time = time.time() - self.scan_progress['start_time']
         files_scanned = self.scan_progress['files_scanned']
         total_files = self.scan_progress['estimated_total_files']
         
         progress_data = self.scan_progress.copy()
+        
+        # Convert sets to lists for JSON serialization
+        if 'scan_stats' in progress_data:
+            scan_stats = progress_data['scan_stats'].copy()
+            if 'extensions_found' in scan_stats and isinstance(scan_stats['extensions_found'], set):
+                scan_stats['extensions_found'] = list(scan_stats['extensions_found'])
+            # Limit directories list to avoid huge JSON responses
+            if 'directories_scanned' in scan_stats and isinstance(scan_stats['directories_scanned'], list):
+                scan_stats['directories_scanned'] = scan_stats['directories_scanned'][-50:]  # Keep last 50
+            progress_data['scan_stats'] = scan_stats
         
         if total_files > 0:
             progress_data['progress_percent'] = (files_scanned / total_files) * 100
@@ -127,25 +170,42 @@ class DiskScanner:
         
         print(f"📂 Collecting files (max depth: {self.config.max_depth})...")
         
+        # Update progress during collection
+        self.scan_progress['current_file'] = 'Collecting files...'
+        self.scan_progress['current_directory'] = str(scan_path)
+        
         try:
             # Use os.walk instead of rglob to avoid permission issues
             import os
             
+            file_count = 0
             for root, dirs, files_list in os.walk(str(scan_path)):
+                # Update current directory being scanned
+                self.scan_progress['current_directory'] = root
+                if file_count % 100 == 0:  # Update every 100 files to avoid overhead
+                    self.scan_progress['current_file'] = f'Scanning directory: {Path(root).name}...'
                 # Skip problematic directories to avoid permission errors
                 dirs[:] = [d for d in dirs if not (d.startswith('.') and d in ['.Spotlight-V100', '.Trashes', '.TemporaryItems'])]
                 
-                # Track directories
+                # Check depth limit BEFORE processing
                 rel_path = Path(root).relative_to(scan_path) if Path(root) != scan_path else Path('.')
                 dir_depth = len(rel_path.parts) - 1 if rel_path != Path('.') else 0
                 
+                # Enforce max depth
+                if dir_depth > self.config.max_depth:
+                    dirs[:] = []  # Don't descend further
+                    continue
+                
                 if dir_depth > 0:  # Don't count root directory
-                    self.scan_progress['scan_stats']['total_directories'] += 1
-                    self.scan_progress['scan_stats']['scan_depth_reached'] = max(
-                        self.scan_progress['scan_stats']['scan_depth_reached'], 
-                        dir_depth
-                    )
-                    self.scan_progress['scan_stats']['directories_scanned'].append(root)
+                    with self.lock:
+                        self.scan_progress['scan_stats']['total_directories'] += 1
+                        self.scan_progress['scan_stats']['scan_depth_reached'] = max(
+                            self.scan_progress['scan_stats']['scan_depth_reached'], 
+                            dir_depth
+                        )
+                        # Limit directories list size
+                        if len(self.scan_progress['scan_stats']['directories_scanned']) < 1000:
+                            self.scan_progress['scan_stats']['directories_scanned'].append(root)
                 
                 # Process files
                 for filename in files_list:
@@ -157,9 +217,17 @@ class DiskScanner:
                             file_info = entry.stat()
                             file_size = file_info.st_size
                             
-                            # Update statistics
-                            self.scan_progress['scan_stats']['total_files_scanned'] += 1
-                            self.scan_progress['scan_stats']['total_bytes_scanned'] += file_size
+                            # Update statistics (thread-safe for progress updates)
+                            with self.lock:
+                                self.scan_progress['scan_stats']['total_files_scanned'] += 1
+                                self.scan_progress['scan_stats']['total_bytes_scanned'] += file_size
+                                
+                                # Update estimated total during collection (rough estimate)
+                                if self.scan_progress['scan_stats']['total_files_scanned'] % 1000 == 0:
+                                    # Estimate: assume 10-20% of files will be scanned
+                                    estimated = int(self.scan_progress['scan_stats']['total_files_scanned'] * 0.15)
+                                    self.scan_progress['estimated_total_files'] = estimated
+                                    self.scan_progress['current_file'] = f'Collecting files... ({self.scan_progress["scan_stats"]["total_files_scanned"]} found so far)'
                             
                             # Track largest file
                             if file_size > self.scan_progress['scan_stats']['largest_file']['size']:
@@ -199,6 +267,7 @@ class DiskScanner:
                                     self.scan_progress['scan_stats']['binary_files'] += 1
                                     
                                 files.append(file_path)
+                                file_count += 1
                                 
                     except (PermissionError, OSError, FileNotFoundError):
                         # Skip problematic files silently
@@ -217,6 +286,10 @@ class DiskScanner:
         
         print(f"   Files under {self.config.max_file_size} limit: {len(files)}")
         print(f"   File types included: crypto extensions + {list(self.config.crypto_content_extensions)}")
+        
+        # Update progress to show collection is complete
+        self.scan_progress['current_file'] = f'Collection complete: {len(files)} files ready to scan'
+        self.scan_progress['estimated_total_files'] = len(files)
             
         return files
     
@@ -334,28 +407,21 @@ class DiskScanner:
     def _scan_file_with_progress(self, index: int, file_path: str, total_files: int) -> ScanResult:
         """Scan a single file with progress tracking"""
         try:
-            # Update current file path for progress tracking
-            self.scan_progress['current_file'] = str(file_path)
-            
-            # Extract directory for progress display
-            file_path_obj = Path(file_path)
-            self.scan_progress['current_directory'] = str(file_path_obj.parent)
+            # Update current file path for progress tracking (thread-safe)
+            with self.lock:
+                self.scan_progress['current_file'] = str(file_path)
+                file_path_obj = Path(file_path)
+                self.scan_progress['current_directory'] = str(file_path_obj.parent)
             
             # Scan the file
             from crypto_detector import CryptoDetector
             detector = CryptoDetector(self.config)
             result = detector.analyze_file(file_path)
             
-            # Update progress
-            self.scan_progress['files_scanned'] = index + 1
-            
             return result
             
         except Exception as e:
             if self.config.verbose:
                 print(f"⚠️  Error scanning {file_path}: {e}")
-            
-            # Still update progress even on error
-            self.scan_progress['files_scanned'] = index + 1
             return None
 
